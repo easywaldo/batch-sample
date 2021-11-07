@@ -1,23 +1,23 @@
 package com.batch.hott_batch.config;
 
 import com.batch.hott_batch.domain.entity.Member;
-import com.batch.hott_batch.domain.repository.UserRepository;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.*;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.JpaItemWriter;
-import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
-import org.springframework.batch.item.support.ListItemReader;
+import org.springframework.batch.item.database.JpaPagingItemReader;
+import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
-import java.util.List;
+import javax.persistence.EntityManagerFactory;
 
 @Configuration
 @EnableBatchProcessing
@@ -28,13 +28,21 @@ public class InActiveUserBatchConfiguration {
     @Autowired
     public StepBuilderFactory stepBuilderFactory;
 
-    @Qualifier(value = "hottEntityMangerFactory")
-    @Autowired
-    public LocalContainerEntityManagerFactoryBean entityManagerFactoryBean;
+    private LocalContainerEntityManagerFactoryBean entityManagerFactoryBean;
 
     public EntityManager entityManager;
 
+    public EntityManagerFactory entityManagerFactory;
+
     private final static int CHUNK_SIZE = 15;
+
+    @Autowired
+    public InActiveUserBatchConfiguration(
+        @Qualifier(value = "hottEntityMangerFactory") LocalContainerEntityManagerFactoryBean entityManagerFactoryBean) {
+        this.entityManagerFactoryBean = entityManagerFactoryBean;
+        this.entityManagerFactory = entityManagerFactoryBean.getNativeEntityManagerFactory();
+        this.entityManager = entityManagerFactoryBean.getNativeEntityManagerFactory().createEntityManager();
+    }
 
     @Bean
     public Job inActiveUserJob(JobBuilderFactory jobBuilderFactory, Step inActiveJobStep) {
@@ -46,23 +54,25 @@ public class InActiveUserBatchConfiguration {
 
     @Bean
     @JobScope
-    //@Transactional(transactionManager = "hottTransactionManager", readOnly = false)
-    public Step inActiveJobStep(StepBuilderFactory stepBuilderFactory, ListItemReader<Member> inactiveUserReader) {
+    public Step inActiveJobStep() throws Exception {
         return stepBuilderFactory.get("inActiveUserStep")
             .<Member, Member> chunk(CHUNK_SIZE)
-            .reader(inactiveUserReader)
+            .reader(jpaItemReader())
             .processor(inActiveUserProcessor())
-            .writer(inActiveUserWriter())
+            .writer(jpaItemWriter())
+            .transactionManager(jpaTransactionManager())
             .build();
     }
 
     @Bean
     @StepScope
-    public ListItemReader<Member> inactiveUserReader(UserRepository userRepository) {
-        entityManager = entityManagerFactoryBean.getNativeEntityManagerFactory().createEntityManager();
-        Member test = entityManager.find(Member.class, 1L);
-        List<Member> memberList = entityManager.createQuery("select m from Member m").getResultList();
-        return new ListItemReader<>(memberList);
+    public JpaPagingItemReader<Member> jpaItemReader() {
+        return new JpaPagingItemReaderBuilder<Member>()
+            .name("jpaItemReader")
+            .entityManagerFactory(entityManagerFactory)
+            .pageSize(CHUNK_SIZE)
+            .queryString("select m from Member m")
+            .build();
     }
 
     @Bean
@@ -73,13 +83,19 @@ public class InActiveUserBatchConfiguration {
 
     @Bean
     @StepScope
-    public JpaItemWriter<Member> inActiveUserWriter() {
-        //return new JpaItemWriterBuilder<Member>().entityManagerFactory(entityManagerFactoryBean.getNativeEntityManagerFactory()).build();
+    public JpaItemWriter<Member> jpaItemWriter() throws Exception {
+
         JpaItemWriter<Member> jpaItemWriter = new JpaItemWriter<>();
-        jpaItemWriter.setEntityManagerFactory(entityManagerFactoryBean.getNativeEntityManagerFactory());
-        jpaItemWriter.setUsePersist(true);
-        List<Member> refreshedList = entityManager.createQuery("select m from Member m").getResultList();
-        entityManager.flush();
+        jpaItemWriter.setEntityManagerFactory(entityManagerFactory);
+        jpaItemWriter.afterPropertiesSet();
         return jpaItemWriter;
+    }
+
+    @Bean
+    @Primary
+    public JpaTransactionManager jpaTransactionManager() {
+        final JpaTransactionManager tm = new JpaTransactionManager(entityManagerFactory);
+        tm.setDataSource(entityManagerFactoryBean.getDataSource());
+        return tm;
     }
 }
