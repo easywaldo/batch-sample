@@ -1,16 +1,15 @@
 package com.batch.hott_batch.domain.entity;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "member")
-@NoArgsConstructor
 @Getter
+@Setter
+@NoArgsConstructor
 public class Member {
 
     @Id
