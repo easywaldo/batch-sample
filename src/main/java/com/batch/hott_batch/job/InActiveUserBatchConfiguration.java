@@ -1,4 +1,4 @@
-package com.batch.hott_batch.config;
+package com.batch.hott_batch.job;
 
 import com.batch.hott_batch.domain.entity.Member;
 import org.springframework.batch.core.Job;
@@ -60,6 +60,7 @@ public class InActiveUserBatchConfiguration {
             .reader(jpaItemReader())
             .processor(inActiveUserProcessor())
             .writer(jpaItemWriter())
+            .listener(new InActiveUserBatchWriterListener())
             .transactionManager(jpaTransactionManager())
             .build();
     }
