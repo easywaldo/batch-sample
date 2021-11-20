@@ -9,5 +9,4 @@ public class HottBatchApplication {
     public static void main(String[] args) {
         SpringApplication.run(HottBatchApplication.class, args);
     }
-
 }

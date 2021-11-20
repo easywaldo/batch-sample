@@ -4,3 +4,6 @@ insert into member (member_seq, name, create_dt, login_dt, is_active) values (3,
 insert into member (member_seq, name, create_dt, login_dt, is_active) values (4, '테스터_4', '2020-03-01 00:00:00', '2020-04-02 00:00:00', false);
 insert into member (member_seq, name, create_dt, login_dt, is_active) values (5, '테스터_5', '2020-04-01 00:00:00', '2020-05-02 00:00:00', false);
 insert into member (member_seq, name, create_dt, login_dt, is_active) values (6, '테스터_6', '2020-05-01 00:00:00', '2020-06-02 00:00:00', false);
+
+
+insert into deal (num, name, hott_id) values ('test-deal000', '원본딜', 'tester123');
